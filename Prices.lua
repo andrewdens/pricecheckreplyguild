@@ -308,14 +308,13 @@ local function perDayText(perDay, short)
 	return grouped(floor(perDay + 0.5))
 end
 
--- The region numbers as notes. In full for one item ("region sale rate 94%", "region sells
--- 2,847/day"); short in a list ("sells 94%", "2.8k/day").
+-- Sales notes use full numbers for one item and abbreviated numbers in a list.
 local function regionNotes(info, notes, short)
 	if info.saleRate then
 		notes[#notes + 1] = (short and "sells " or "region sale rate ") .. percentText(info.saleRate)
 	end
 	if info.perDay then
-		notes[#notes + 1] = (short and "" or "region sells ") .. perDayText(info.perDay, short) .. "/day"
+		notes[#notes + 1] = "on average sells " .. perDayText(info.perDay, short) .. " per day"
 	end
 end
 

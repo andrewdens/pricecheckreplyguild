@@ -1,18 +1,5 @@
 local _, ns = ...
 
--- The same answer isn't sent to the same place twice within this many seconds. That also stops two
--- players running the addon from answering each other in a loop.
-local REPEAT_WINDOW = 10
--- At most this many lines sent in any RATE_WINDOW seconds, so a flood of requests can't get the
--- player muted for spam.
-local RATE_LINES, RATE_WINDOW = 8, 15
--- Seconds between the lines of one answer. Lines sent in the same moment can reach the asker out
--- of order (seen on WoW Forever), and the total has to come first.
-local LINE_GAP = 0.3
-
-local SendChat = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
-local selfTestUntil = 0
-
 local function hasShortTrigger(text)
 	local from = 1
 	while true do
@@ -32,87 +19,77 @@ local function hasTrigger(text)
 	return ns.HasWord(ns.Words(text), ns.TRIGGER) or hasShortTrigger(text)
 end
 
-local lastSent = {}  -- place .. answer -> time sent
-local sendTimes = {} -- times of recent lines, oldest first
-local warnedRate, warnedNoAddon = false, false
-
-local function roomToSend(count)
-	local now = GetTime()
-	while sendTimes[1] and now - sendTimes[1] > RATE_WINDOW do table.remove(sendTimes, 1) end
-	return #sendTimes + count <= RATE_LINES
-end
-
-local function send(lines, chatType, target)
-	-- Retail stops addons sending chat during boss fights, Mythic+ and PvP matches.
-	if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then return end
-
-	local place = chatType .. ":" .. tostring(target or "")
-	local answer = table.concat(lines, "\n")
-	local now = GetTime()
-	for key, sentAt in pairs(lastSent) do
-		if now - sentAt >= REPEAT_WINDOW then lastSent[key] = nil end
-	end
-	if lastSent[place .. answer] and now - lastSent[place .. answer] < REPEAT_WINDOW then return end
-	if not roomToSend(#lines) then
-		if not warnedRate then
-			warnedRate = true
-			ns.Print("too many price requests at once; some went unanswered.")
-		end
-		return
-	end
-	lastSent[place .. answer] = now
-
-	local function sendLine(line)
-		SendChat(line, chatType, nil, target)
-	end
-	for i, line in ipairs(lines) do
-		sendTimes[#sendTimes + 1] = now
-		if i == 1 then
-			sendLine(line)
-		else
-			C_Timer.After((i - 1) * LINE_GAP, function() sendLine(line) end)
-		end
-	end
-end
+local warnedNoAddon = false
 
 local guildDraft
 local guildReplyButton
+local testDraft
 
-local function hasGuildReplyButton(mode)
-	return mode == "draft" or mode == "whisper"
+local function showReplyPreview(button)
+	if not guildDraft then return end
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+	GameTooltip:SetText(guildDraft[1], 1, 1, 1, 1, true)
+	GameTooltip:AddLine("Right-drag to move. Shift-right-drag to resize.", 0.8, 0.8, 0.8, true)
+	GameTooltip:Show()
 end
 
-function ns.ClearDraft()
+local function clearDraft()
 	guildDraft = nil
-	if guildReplyButton then guildReplyButton:Hide() end
+	testDraft = nil
+	guildReplyButton:Hide()
 end
 
 local function replyInGuild()
-	if not guildDraft or not hasGuildReplyButton(ns.GetMode()) or not IsInGuild() then
-		ns.ClearDraft()
+	if not guildDraft then return end
+	if testDraft then
+		clearDraft()
+		ns.Print("Reply button test clicked.")
 		return
 	end
-	if ns.CanAnswerIn("GUILD") then
-		local lines = guildDraft
-		ns.ClearDraft()
-		send(lines, "GUILD")
+	if not ns.CanReply() then
+		clearDraft()
 		return
 	end
-	local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
-	if not openChat then
-		ns.Print("your client couldn't open the guild chat box.")
-		return
+	local line = guildDraft[1]
+	if IsShiftKeyDown() then
+		local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+		if not openChat then
+			ns.Print("your client couldn't open the guild chat box.")
+			return
+		end
+		openChat((SLASH_GUILD1 or "/g") .. " " .. line, DEFAULT_CHAT_FRAME)
+	else
+		if InCombatLockdown() or UnitAffectingCombat("player")
+			or (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()) then
+			ns.Print("leave combat before trying to send a guild reply.")
+			return
+		end
+		-- Send one line within the hardware click, as in the custom Price Answer button.
+		local sendGuild = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
+		sendGuild(line, "GUILD")
 	end
-	local line = table.remove(guildDraft, 1)
-	if #guildDraft == 0 then ns.ClearDraft() end
-	openChat((SLASH_GUILD1 or "/g") .. " " .. line, DEFAULT_CHAT_FRAME)
+	table.remove(guildDraft, 1)
+	if #guildDraft == 0 then
+		clearDraft()
+	elseif GameTooltip:IsOwned(guildReplyButton) then
+		showReplyPreview(guildReplyButton)
+	end
 end
 
-local function showGuildReply(lines)
+local function showGuildReply(lines, isTest)
 	if not guildReplyButton then
 		guildReplyButton = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
-		guildReplyButton:SetSize(64, 26)
+		local size = ns.settings.size
+		local width = type(size) == "table" and tonumber(size.width) or 64
+		local height = type(size) == "table" and tonumber(size.height) or 26
+		guildReplyButton:SetSize(math.max(64, width), math.max(26, height))
 		guildReplyButton:SetMovable(true)
+		guildReplyButton:SetResizable(true)
+		if guildReplyButton.SetResizeBounds then
+			guildReplyButton:SetResizeBounds(64, 26)
+		else
+			guildReplyButton:SetMinResize(64, 26)
+		end
 		guildReplyButton:SetClampedToScreen(true)
 		local position = ns.settings.position
 		if type(position) == "table" and type(position.x) == "number" and type(position.y) == "number" then
@@ -122,10 +99,26 @@ local function showGuildReply(lines)
 			guildReplyButton:SetPoint("LEFT", UIParent, "LEFT", 4, 0)
 		end
 		guildReplyButton:SetText("Reply")
+		local close = CreateFrame("Button", nil, guildReplyButton, "UIPanelCloseButton")
+		close:SetSize(10, 10)
+		close:SetPoint("BOTTOMLEFT", guildReplyButton, "TOPRIGHT", -3, -3)
+		close:SetScript("OnClick", clearDraft)
 		guildReplyButton:RegisterForClicks("LeftButtonUp")
 		guildReplyButton:RegisterForDrag("RightButton")
 		guildReplyButton:SetScript("OnClick", replyInGuild)
-		guildReplyButton:SetScript("OnDragStart", guildReplyButton.StartMoving)
+		guildReplyButton:SetScript("OnEnter", showReplyPreview)
+		guildReplyButton:SetScript("OnLeave", function(button)
+			if GameTooltip:IsOwned(button) then GameTooltip:Hide() end
+		end)
+		guildReplyButton:SetScript("OnHide", guildReplyButton:GetScript("OnLeave"))
+		guildReplyButton:SetScript("OnDragStart", function(button)
+			if GameTooltip:IsOwned(button) then GameTooltip:Hide() end
+			if IsShiftKeyDown() then
+				button:StartSizing("BOTTOMRIGHT")
+			else
+				button:StartMoving()
+			end
+		end)
 		guildReplyButton:SetScript("OnDragStop", function(button)
 			button:StopMovingOrSizing()
 			button:SetUserPlaced(false)
@@ -135,21 +128,30 @@ local function showGuildReply(lines)
 				x = (x - left) / UIParent:GetWidth(),
 				y = (y - bottom) / UIParent:GetHeight(),
 			}
+			ns.settings.size = { width = button:GetWidth(), height = button:GetHeight() }
 		end)
 	end
 	guildDraft = lines
+	testDraft = isTest
 	guildReplyButton:Show()
+	if GameTooltip:IsOwned(guildReplyButton) then showReplyPreview(guildReplyButton) end
+end
+
+function ns.ShowTestReply()
+	showGuildReply({ "Test price reply: Copper Ore, 25 silver." }, true)
+end
+
+function ns.HideTestReply()
+	if testDraft then clearDraft() end
 end
 
 
 local function onGuildChat(_, _, text, sender, _, _, _, flags, _, _, _, _, _, guid)
-	local mode = ns.GetMode()
-	if mode == "off" or not IsInGuild() then return end
+	if not ns.CanReply() then return end
 	if not (ns.Readable(text) and ns.Readable(sender) and ns.Readable(guid) and ns.Readable(flags)) then return end
 	if type(text) ~= "string" or type(sender) ~= "string" or flags == "GM" or flags == "DEV" then return end
 	local shortName = Ambiguate and Ambiguate(sender, "none") or sender
 	local ownMessage = (guid and guid == UnitGUID("player")) or shortName == UnitName("player")
-	if ownMessage and GetTime() >= selfTestUntil then return end
 	if not hasTrigger(text) then return end
 	if not ns.CanAnswer(text) then
 		if not warnedNoAddon then
@@ -159,21 +161,13 @@ local function onGuildChat(_, _, text, sender, _, _, _, flags, _, _, _, _, _, gu
 		return
 	end
 	ns.WhenLoaded(text, function()
-		if ns.GetMode() ~= mode or not IsInGuild() then return end
+		if not ns.CanReply() then return end
 		local lines = ns.BuildReply(text)
-		if not lines then return end
-		if hasGuildReplyButton(mode) then showGuildReply(lines) end
-		if mode == "draft" then return end
-		ns.TakeTurns("GUILD", text, function()
-			if ns.GetMode() ~= mode or not IsInGuild() then return end
-			if mode == "whisper" or not ns.CanAnswerIn("GUILD") then
-				local mainWhisper = PriceCheckReplyDB.guildReply
-				if mainWhisper and mainWhisper ~= "off" then return end
-				send(lines, "WHISPER", sender)
-			else
-				send(lines, "GUILD")
-			end
-		end)
+		if not lines then
+			if ownMessage then ns.Print("Self-test needs a real item link. Shift-click an item to insert it.") end
+			return
+		end
+		showGuildReply(lines)
 	end)
 end
 
@@ -184,6 +178,13 @@ function ns.StartListening()
 end
 
 function ns.SelfTest()
-	selfTestUntil = GetTime() + 300
-	ns.Print("For five minutes, your own guild price requests count for testing.")
+	if not IsInGuild() then
+		ns.Print("Join a guild before testing guild price requests.")
+		return
+	end
+	if not ns.CanReply() then
+		ns.Print("Enable PriceCheck Reply before testing.")
+		return
+	end
+	ns.Print("Your own guild requests count automatically. Send ?pc followed by a shift-clicked item link in guild chat to test.")
 end

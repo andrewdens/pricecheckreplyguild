@@ -45,23 +45,6 @@ end
 -- works too (see Reply.lua). Both are fixed, so everyone asks the same way.
 ns.TRIGGER = "?pc"
 
--- Chats an addon can't write in when the realm restricts outgoing addon chat. Blizzard sets the
--- restriction per realm; Retail (12.1.5) and WoW Forever (1.60.1) realms have it, both tested in
--- game in November 2026, and there the game blocks addons from guild chat (and officer chat, which
--- goes to the same place) but lets party chat and whispers through.
-local RESTRICTED_CHATS = { GUILD = true, OFFICER = true }
-
--- Whether addons can write in `chatType` chat on this realm. Where they can't, their hidden
--- messages don't get through either, so the players with the addon can't agree on one answerer
--- (see Turns.lua).
-function ns.CanAnswerIn(chatType)
-	if not RESTRICTED_CHATS[chatType] then return true end
-	local restricted = C_ChatInfo and C_ChatInfo.AreOutgoingAddonChatMessagesRestricted
-	if not restricted then return true end
-	local ok, isRestricted = pcall(restricted)
-	return not (ok and isRestricted)
-end
-
 local priceDefaults = {
 	provider = "auto",       -- "auto" | "tsm" | "auctionator"
 	askerPicks = true,       -- "tsm" or "auc" in a request picks the price addon
@@ -83,19 +66,8 @@ ns.db = setmetatable({}, {
 	end,
 })
 
-function ns.GetMode()
-	local main = PriceCheckReplyDB
-	if not ns.settings or not main or main.enabled == false then return "off" end
-	return ns.settings.mode
-end
-
-function ns.SetMode(mode)
-	ns.settings.mode = mode
-	if mode ~= "off" and PriceCheckReplyDB then
-		local current = PriceCheckReplyDB.guildReply
-		PriceCheckReplyDB.guildReply = type(current) == "string" and "off" or false
-	end
-	ns.ClearDraft()
+function ns.CanReply()
+	return PriceCheckReplyDB and PriceCheckReplyDB.enabled ~= false and IsInGuild()
 end
 
 local events = CreateFrame("Frame")
@@ -105,17 +77,12 @@ events:SetScript("OnEvent", function(self, _, name)
 	self:UnregisterEvent("ADDON_LOADED")
 	PriceCheckReplyGuildDB = PriceCheckReplyGuildDB or {}
 	ns.settings = PriceCheckReplyGuildDB
-	local old = PriceCheckReplyDB
-	if not ns.settings.mode or ns.settings.migrationPending then
-		local mode = old and old.guildReply
-		if mode == "draft" or mode == "channel" or mode == "whisper" then
-			ns.settings.position = old.guildReplyPosition
-			ns.SetMode(mode)
-		else
-			ns.SetMode(ns.settings.mode or "off")
-		end
-		ns.settings.migrationPending = nil
+	local main = PriceCheckReplyDB
+	if main then
+		if ns.settings.position == nil then ns.settings.position = main.guildReplyPosition end
+		main.guildReply = type(main.guildReply) == "string" and "off" or false
 	end
-	ns.CreateOptions()
+	ns.settings.mode = nil
+	ns.settings.migrationPending = nil
 	ns.StartListening()
 end)
