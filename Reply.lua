@@ -42,7 +42,7 @@ local function roomToSend(count)
 	return #sendTimes + count <= RATE_LINES
 end
 
-local function send(lines, chatType, target, fromClick)
+local function send(lines, chatType, target)
 	-- Retail stops addons sending chat during boss fights, Mythic+ and PvP matches.
 	if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then return end
 
@@ -67,7 +67,7 @@ local function send(lines, chatType, target, fromClick)
 	end
 	for i, line in ipairs(lines) do
 		sendTimes[#sendTimes + 1] = now
-		if i == 1 or fromClick then
+		if i == 1 then
 			sendLine(line)
 		else
 			C_Timer.After((i - 1) * LINE_GAP, function() sendLine(line) end)
@@ -92,10 +92,20 @@ local function replyInGuild()
 		ns.ClearDraft()
 		return
 	end
-	local lines = guildDraft
-	ns.ClearDraft()
-	-- Keep every line inside the click handler so restricted clients can send it.
-	send(lines, "GUILD", nil, true)
+	if ns.CanAnswerIn("GUILD") then
+		local lines = guildDraft
+		ns.ClearDraft()
+		send(lines, "GUILD")
+		return
+	end
+	local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
+	if not openChat then
+		ns.Print("your client couldn't open the guild chat box.")
+		return
+	end
+	local line = table.remove(guildDraft, 1)
+	if #guildDraft == 0 then ns.ClearDraft() end
+	openChat((SLASH_GUILD1 or "/g") .. " " .. line, DEFAULT_CHAT_FRAME)
 end
 
 local function showGuildReply(lines)

@@ -1,6 +1,6 @@
 # PriceCheck Reply – Guild
 
-A World of Warcraft add-on that answers guild price checks. Use the movable **Reply** button to send prices directly to guild chat, or enable automatic replies.
+A World of Warcraft add-on that answers guild price checks. Use the movable **Reply** button to post prices in guild chat, or enable automatic replies.
 
 ## Installation
 
@@ -17,6 +17,8 @@ A World of Warcraft add-on that answers guild price checks. Use the movable **Re
 | **Show a reply button** | Click **Reply** to send the price to guild chat. |
 | **Reply in guild chat automatically** | Sends the price to guild chat. If the realm restricts automatic guild messages, it whispers the asker instead. |
 | **Whisper the asker and show a reply button** | Whispers the price to the asker and shows **Reply** so you can also post it in guild chat. |
+
+On realms that restrict add-on guild messages, **Reply** fills the guild chat box. Press Enter to send. For a multiline reply, repeat for each line.
 
 Selecting an active mode here turns off the main add-on's automatic guild replies. Right-drag **Reply** to move it.
 

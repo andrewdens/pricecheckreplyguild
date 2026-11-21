@@ -17,7 +17,8 @@ function ns.CreateOptions()
 	end
 	layout:AddInitializer(Settings.CreateControlInitializer("PriceCheckReplyGuildSettingsDropdownTemplate",
 		setting, choices, "Selecting an active mode here turns off the main addon's guild whispers."
-		.. " Click Reply to send to guild chat. Right-drag the button to move it."))
+		.. " On restricted realms, Reply fills the guild chat box. Press Enter to send."
+		.. " Right-drag the button to move it."))
 	Settings.RegisterAddOnCategory(category)
 end
 
