@@ -4,7 +4,7 @@ A World of Warcraft add-on that answers guild price checks. Use the movable **Re
 
 ## Installation
 
-1. Install [PriceCheck Reply](https://github.com/andrewdens/pricecheckreply) and keep it enabled. The Guild add-on uses its pricing preferences.
+1. Install [PriceCheck Reply](https://github.com/Archydude/PriceCheckReply) and keep it enabled. The Guild add-on uses its pricing preferences.
 2. Install **TradeSkillMaster** or **Auctionator** as a price source.
 3. Download this repository as a ZIP and extract it. Rename the extracted folder to `PriceCheckReplyGuild` and place it in your client's `Interface/AddOns` folder. The file should be at `Interface/AddOns/PriceCheckReplyGuild/PriceCheckReplyGuild.toc`.
 4. Enable **PriceCheck Reply – Guild** in WoW and enter `/pcrguild` to open its settings.
