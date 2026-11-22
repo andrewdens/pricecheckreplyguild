@@ -21,36 +21,48 @@ end
 
 local warnedNoAddon = false
 
-local guildDraft
+local replyQueue = {}
 local guildReplyButton
-local testDraft
 
 local function showReplyPreview(button)
-	if not guildDraft then return end
+	local draft = replyQueue[1]
+	if not draft then return end
 	GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-	GameTooltip:SetText(guildDraft[1], 1, 1, 1, 1, true)
+	GameTooltip:SetText(draft.lines[1], 1, 1, 1, 1, true)
+	if draft.sender then GameTooltip:AddLine("Requested by " .. draft.sender, 1, 1, 1, true) end
+	if #replyQueue > 1 then GameTooltip:AddLine((#replyQueue - 1) .. " more waiting", 1, 1, 1) end
 	GameTooltip:AddLine("Right-drag to move. Shift-right-drag to resize.", 0.8, 0.8, 0.8, true)
 	GameTooltip:Show()
 end
 
-local function clearDraft()
-	guildDraft = nil
-	testDraft = nil
-	guildReplyButton:Hide()
+local function updateReplyButton()
+	if #replyQueue == 0 then
+		guildReplyButton:Hide()
+		return
+	end
+	guildReplyButton:SetText(#replyQueue > 1 and string.format("Reply (%d)", #replyQueue) or "Reply")
+	guildReplyButton:Show()
+	if GameTooltip:IsOwned(guildReplyButton) then showReplyPreview(guildReplyButton) end
+end
+
+local function dismissReply()
+	table.remove(replyQueue, 1)
+	updateReplyButton()
 end
 
 local function replyInGuild()
-	if not guildDraft then return end
-	if testDraft then
-		clearDraft()
+	local draft = replyQueue[1]
+	if not draft then return end
+	if draft.isTest then
+		dismissReply()
 		ns.Print("Reply button test clicked.")
 		return
 	end
 	if not ns.CanReply() then
-		clearDraft()
+		dismissReply()
 		return
 	end
-	local line = guildDraft[1]
+	local line = draft.lines[1]
 	if IsShiftKeyDown() then
 		local openChat = (ChatFrameUtil and ChatFrameUtil.OpenChat) or ChatFrame_OpenChat
 		if not openChat then
@@ -67,15 +79,11 @@ local function replyInGuild()
 		local sendGuild = (C_ChatInfo and C_ChatInfo.SendChatMessage) or SendChatMessage
 		sendGuild(line, "GUILD")
 	end
-	table.remove(guildDraft, 1)
-	if #guildDraft == 0 then
-		clearDraft()
-	elseif GameTooltip:IsOwned(guildReplyButton) then
-		showReplyPreview(guildReplyButton)
-	end
+	table.remove(draft.lines, 1)
+	if #draft.lines == 0 then dismissReply() else updateReplyButton() end
 end
 
-local function showGuildReply(lines, isTest)
+local function showGuildReply(lines, isTest, sender)
 	if not guildReplyButton then
 		guildReplyButton = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
 		local size = ns.settings.size
@@ -97,11 +105,10 @@ local function showGuildReply(lines, isTest)
 		else
 			guildReplyButton:SetPoint("LEFT", UIParent, "LEFT", 4, 0)
 		end
-		guildReplyButton:SetText("Reply")
 		local close = CreateFrame("Button", nil, guildReplyButton, "UIPanelCloseButton")
 		close:SetSize(10, 10)
 		close:SetPoint("BOTTOMLEFT", guildReplyButton, "TOPRIGHT", -3, -3)
-		close:SetScript("OnClick", clearDraft)
+		close:SetScript("OnClick", dismissReply)
 		guildReplyButton:RegisterForClicks("LeftButtonUp")
 		guildReplyButton:RegisterForDrag("RightButton")
 		guildReplyButton:SetScript("OnClick", replyInGuild)
@@ -130,19 +137,22 @@ local function showGuildReply(lines, isTest)
 			ns.settings.size = { width = button:GetWidth(), height = button:GetHeight() }
 		end)
 	end
-	guildDraft = lines
-	testDraft = isTest
-	guildReplyButton:Show()
-	if GameTooltip:IsOwned(guildReplyButton) then showReplyPreview(guildReplyButton) end
+	if replyQueue[1] and replyQueue[1].isTest then table.remove(replyQueue, 1) end
+	replyQueue[#replyQueue + 1] = { lines = lines, isTest = isTest, sender = sender }
+	updateReplyButton()
 	PlaySound(SOUNDKIT.TELL_MESSAGE)
 end
 
 function ns.ShowTestReply()
+	if replyQueue[1] and not replyQueue[1].isTest then
+		ns.Print("Finish or dismiss the queued guild replies before testing.")
+		return
+	end
 	showGuildReply({ "Test price reply: Copper Ore, 25 silver." }, true)
 end
 
 function ns.HideTestReply()
-	if testDraft then clearDraft() end
+	if replyQueue[1] and replyQueue[1].isTest then dismissReply() end
 end
 
 
@@ -167,7 +177,7 @@ local function onGuildChat(_, _, text, sender, _, _, _, flags, _, _, _, _, _, gu
 			if ownMessage then ns.Print("Self-test needs a real item link. Shift-click an item to insert it.") end
 			return
 		end
-		showGuildReply(lines)
+		showGuildReply(lines, false, shortName)
 	end)
 end
 

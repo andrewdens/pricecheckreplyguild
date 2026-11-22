@@ -13,7 +13,7 @@ A World of Warcraft add-on that answers guild price checks. Use the movable **Re
 
 Click **Reply** once per line. If your client blocks direct guild sending, shift-click **Reply** to fill the guild chat box, then press Enter to send.
 
-Click the **×** at the top right of **Reply** to dismiss the pending reply.
+When multiple replies are ready, **Reply (3)** means three requests are queued, including the one shown in the tooltip. Finish each request's lines or click the **×** to skip that request and move to the next one.
 
 The Guild add-on turns off the main add-on's automatic guild replies when it loads. Hover over **Reply** to preview the next line. Right-drag to move the button, or Shift-right-drag to resize it. Its size and position are saved.
 
