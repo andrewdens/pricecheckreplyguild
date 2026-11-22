@@ -110,18 +110,40 @@ local function auctionatorPrice(link, kind)
 	return value, "Auctionator", ns.AuctionatorAge(link)
 end
 
+-- TSM's tooltip uses the newest realm snapshot supplied by AppHelper. Capture its
+-- timestamp as AppHelper loads, since the public pricing API only returns prices.
+local tsmRealmUpdate
+local function captureTSMRealmUpdate(tag, realm, data)
+	if tag ~= "AUCTIONDB_NON_COMMODITY_DATA" and tag ~= "AUCTIONDB_NON_COMMODITY_SCAN_STAT" then return end
+	if type(realm) ~= "string" or type(data) ~= "string" then return end
+	local currentRealm = GetRealmName()
+	if WOW_PROJECT_ID ~= WOW_PROJECT_MAINLINE then
+		local faction = UnitFactionGroup("player")
+		if not faction then return end
+		currentRealm = currentRealm .. "-" .. faction
+	end
+	if realm:gsub("\226", "'"):lower() ~= currentRealm:gsub("\226", "'"):lower() then return end
+	local updated = tonumber(data:match("^return%s*{%s*downloadTime%s*=%s*(%d+)"))
+	if updated and updated > (tsmRealmUpdate or 0) and updated <= time() then tsmRealmUpdate = updated end
+end
+
+if type(TSM_APPHELPER_LOAD_DATA) == "function" then
+	hooksecurefunc("TSM_APPHELPER_LOAD_DATA", captureTSMRealmUpdate)
+end
+
 local function tsmScanAge()
 	-- AppHelper saves the timestamp of the last full scan when the UI unloads.
 	local db = TradeSkillMaster_AppHelperDB
 	local scan = type(db) == "table" and db.fullScan
-	local scanned = type(scan) == "table" and scan.updateTime
+	local scanned = tsmRealmUpdate or (type(scan) == "table" and scan.updateTime)
 	if type(scanned) ~= "number" or scanned <= 0 then return end
 	local ago = time() - scanned
 	if ago < 0 then return end
-	if ago < 60 then return "TSM last saved scan <1m ago" end
-	if ago < 3600 then return format("TSM last saved scan %dm ago", floor(ago / 60)) end
-	if ago < 86400 then return format("TSM last saved scan %dh ago", floor(ago / 3600)) end
-	return format("TSM last saved scan %dd ago", floor(ago / 86400))
+	local label = tsmRealmUpdate and "realm data " or "TSM last saved scan "
+	if ago < 60 then return label .. "<1m ago" end
+	if ago < 3600 then return label .. format("%dm ago", floor(ago / 60)) end
+	if ago < 86400 then return label .. format("%dh ago", floor(ago / 3600)) end
+	return label .. format("%dd ago", floor(ago / 86400))
 end
 
 -- One item's auction price, where it came from, the age note, and whether it
