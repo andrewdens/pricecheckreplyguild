@@ -19,9 +19,10 @@ ns.TSM_SOURCES = {
 	{ "dbregionmarketavg", "Region market average", "TSM region avg", "region avg", "reg avg" },
 }
 
-local TSM_LABELS, SECOND_NAMES, SECOND_SHORT = {}, {}, {}
+local TSM_PRIMARY_SOURCE = "dbregionsaleavg"
+local SECOND_NAMES, SECOND_SHORT = {}, {}
 for _, source in ipairs(ns.TSM_SOURCES) do
-	TSM_LABELS[source[1]], SECOND_NAMES[source[1]], SECOND_SHORT[source[1]] = source[3], source[4], source[5]
+	SECOND_NAMES[source[1]], SECOND_SHORT[source[1]] = source[4], source[5]
 end
 
 ---------------------------------------------------------------------------
@@ -84,15 +85,14 @@ local function tsmValue(link, source)
 end
 
 local function tsmPrice(link)
-	local source = ns.db.tsmSource
-	local value = tsmValue(link, source)
-	if value then return value, TSM_LABELS[source] or ("TSM " .. source) end
+	local value = tsmValue(link, TSM_PRIMARY_SOURCE)
+	if value then return value, "TSM region sale avg" end
 end
 
 -- The TSM price to say next to the main one, or nil when that's off or the same price.
 local function secondSource()
 	local source = ns.db.tsmSecond
-	if source and source ~= "none" and source ~= ns.db.tsmSource and SECOND_NAMES[source] then return source end
+	if source and source ~= "none" and source ~= TSM_PRIMARY_SOURCE and SECOND_NAMES[source] then return source end
 end
 
 local function auctionatorPrice(link, kind)
@@ -113,16 +113,35 @@ end
 -- TSM's tooltip uses the newest realm snapshot supplied by AppHelper. Capture its
 -- timestamp as AppHelper loads, since the public pricing API only returns prices.
 local tsmRealmUpdate
+local function tsmRealmKey(realm)
+	return realm:gsub("\226", "'"):lower()
+end
+
+function ns.TSMCurrentRealm()
+	local realm = GetRealmName()
+	-- TSM identifies Forever realms by their ruleset, since GetRealmName can be empty.
+	if WOW_PROJECT_CAMELOT and WOW_PROJECT_ID == WOW_PROJECT_CAMELOT then
+		local rules = Enum.GameRule
+		local active = C_GameRules.IsGameRuleActive
+		local isRP, isPvP = active(rules.RPRuleset), active(rules.PvPRuleset)
+		if active(rules.HardcoreRuleset) then
+			realm = "Hardcore"
+		elseif isRP then
+			realm = isPvP and "Roleplay PvP" or "Roleplay"
+		else
+			realm = isPvP and "PvP" or "Normal"
+		end
+	end
+	if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then return realm end
+	local faction = UnitFactionGroup("player")
+	if faction then return realm .. "-" .. faction end
+	return realm
+end
+
 local function captureTSMRealmUpdate(tag, realm, data)
 	if tag ~= "AUCTIONDB_NON_COMMODITY_DATA" and tag ~= "AUCTIONDB_NON_COMMODITY_SCAN_STAT" then return end
 	if type(realm) ~= "string" or type(data) ~= "string" then return end
-	local currentRealm = GetRealmName()
-	if WOW_PROJECT_ID ~= WOW_PROJECT_MAINLINE then
-		local faction = UnitFactionGroup("player")
-		if not faction then return end
-		currentRealm = currentRealm .. "-" .. faction
-	end
-	if realm:gsub("\226", "'"):lower() ~= currentRealm:gsub("\226", "'"):lower() then return end
+	if tsmRealmKey(realm) ~= tsmRealmKey(ns.TSMCurrentRealm()) then return end
 	local updated = tonumber(data:match("^return%s*{%s*downloadTime%s*=%s*(%d+)"))
 	if updated and updated > (tsmRealmUpdate or 0) and updated <= time() then tsmRealmUpdate = updated end
 end
@@ -131,19 +150,26 @@ if type(TSM_APPHELPER_LOAD_DATA) == "function" then
 	hooksecurefunc("TSM_APPHELPER_LOAD_DATA", captureTSMRealmUpdate)
 end
 
-local function tsmScanAge()
+function ns.TSMScanAge()
+	local now = time()
+	local imported = PriceCheckReplyGuild_TSMRealmUpdates
+	local realmUpdate = tsmRealmUpdate
+	if type(imported) == "table" then
+		local updated = imported[tsmRealmKey(ns.TSMCurrentRealm())]
+		if type(updated) == "number" and updated <= now and updated > (realmUpdate or 0) then realmUpdate = updated end
+	end
 	-- AppHelper saves the timestamp of the last full scan when the UI unloads.
 	local db = TradeSkillMaster_AppHelperDB
 	local scan = type(db) == "table" and db.fullScan
-	local scanned = tsmRealmUpdate or (type(scan) == "table" and scan.updateTime)
+	local scanned = realmUpdate or (type(scan) == "table" and scan.updateTime)
 	if type(scanned) ~= "number" or scanned <= 0 then return end
-	local ago = time() - scanned
+	local ago = now - scanned
 	if ago < 0 then return end
-	local label = tsmRealmUpdate and "realm data " or "TSM last saved scan "
+	local label = realmUpdate and "realm data " or "TSM last saved scan "
 	if ago < 60 then return label .. "<1m ago" end
-	if ago < 3600 then return label .. format("%dm ago", floor(ago / 60)) end
-	if ago < 86400 then return label .. format("%dh ago", floor(ago / 3600)) end
-	return label .. format("%dd ago", floor(ago / 86400))
+	local minutes = floor(ago / 60)
+	if minutes < 60 then return label .. format("%dm ago", minutes) end
+	return label .. format("%dh %dm ago", floor(minutes / 60), minutes % 60)
 end
 
 -- One item's auction price, where it came from, the age note, and whether it
@@ -151,7 +177,7 @@ end
 local function auctionPrice(link, kind, addon)
 	if useTSM(addon) then
 		local value, label = tsmPrice(link)
-		if value then return value, label, ns.db.showAge and tsmScanAge() or nil, true end
+		if value then return value, label, ns.db.showAge and ns.TSMScanAge() or nil, true end
 	end
 	if useAuctionator(addon) then return auctionatorPrice(link, kind) end
 end
@@ -265,14 +291,11 @@ function ns.Coins(copper)
 	copper = floor(copper + 0.5)
 	local gold, silver, cop = floor(copper / 10000), floor(copper / 100) % 100, copper % 100
 	local g, s, c = GOLD_AMOUNT_SYMBOL or "g", SILVER_AMOUNT_SYMBOL or "s", COPPER_AMOUNT_SYMBOL or "c"
-	if gold >= 1000 then return grouped(gold) .. g end
-	if gold > 0 then
-		return silver > 0 and format("%.0f%s %.0f%s", gold, g, silver, s) or format("%.0f%s", gold, g)
-	end
-	if silver > 0 then
-		return cop > 0 and format("%.0f%s %.0f%s", silver, s, cop, c) or format("%.0f%s", silver, s)
-	end
-	return format("%.0f%s", cop, c)
+	local parts = {}
+	if gold > 0 then parts[#parts + 1] = grouped(gold) .. g end
+	if silver > 0 then parts[#parts + 1] = format("%.0f%s", silver, s) end
+	if cop > 0 or #parts == 0 then parts[#parts + 1] = format("%.0f%s", cop, c) end
+	return table.concat(parts, " ")
 end
 
 ---------------------------------------------------------------------------

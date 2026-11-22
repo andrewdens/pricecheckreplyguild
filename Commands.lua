@@ -2,11 +2,16 @@ local _, ns = ...
 
 SLASH_PRICECHECKREPLYGUILD1 = "/pcrguild"
 SlashCmdList.PRICECHECKREPLYGUILD = function(message)
-	local command = strtrim(message):lower()
+	local text = strtrim(message)
+	local command = text:lower()
 	if command == "test" then
 		ns.ShowTestReply()
 	elseif command == "test hide" then
 		ns.HideTestReply()
+	elseif command == "test say" then
+		ns.ArmSayTest()
+	elseif command:match("^test%s+") then
+		ns.PreviewRequest(text:match("^%S+%s+(.+)$"))
 	else
 		ns.SelfTest()
 	end

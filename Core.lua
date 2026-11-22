@@ -48,7 +48,6 @@ ns.TRIGGER = "?pc"
 local priceDefaults = {
 	provider = "auto",       -- "auto" | "tsm" | "auctionator"
 	askerPicks = true,       -- "tsm" or "auc" in a request picks the price addon
-	tsmSource = "dbmarket",
 	tsmSecond = "none",      -- a second TSM price to say next to the main one, or "none"
 	showSource = true,       -- say where each price comes from
 	showAge = true,          -- say how old an Auctionator price is

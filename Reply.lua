@@ -148,7 +148,11 @@ function ns.ShowTestReply()
 		ns.Print("Finish or dismiss the queued guild replies before testing.")
 		return
 	end
-	showGuildReply({ "Test price reply: Copper Ore, 25 silver." }, true)
+	local age = ns.db.showAge and ns.TSMScanAge()
+	local line = "Test price reply: Copper Ore, 25 silver."
+	if age then line = line .. " (" .. age .. ")" end
+	showGuildReply({ line }, true)
+	if age then ns.Print(age) end
 end
 
 function ns.HideTestReply()
@@ -156,13 +160,57 @@ function ns.HideTestReply()
 end
 
 
-local function onGuildChat(_, _, text, sender, _, _, _, flags, _, _, _, _, _, guid)
-	if not ns.CanReply() then return end
+local sayTestArmed = false
+
+function ns.PreviewRequest(text)
+	if #ns.ReadItems(text) == 0 then
+		ns.Print("Shift-click an item to insert its link into the test request.")
+		return
+	end
+	if not ns.CanAnswer(text) then
+		ns.Print(ns.MissingPriceAddon() .. ".")
+		return
+	end
+	ns.WhenLoaded(text, function()
+		local lines = ns.BuildReply(text) or {}
+		for _, line in ipairs(lines) do ns.Print(line) end
+		if ns.db.provider == "auctionator" or not TSM_API then return end
+		if not ns.db.showAge then
+			ns.Print("TSM age is disabled. Enable 'Say how old prices are' in PriceCheck Reply.")
+		elseif not ns.TSMScanAge() then
+			local imported = PriceCheckReplyGuild_TSMRealmUpdates
+			if type(imported) ~= "table" then
+				ns.Print("TSM age is unavailable. Check that PriceCheck Reply Guild - TSM Realm Data is enabled in WoW's AddOns list.")
+			else
+				ns.Print("TSM age is unavailable for " .. ns.TSMCurrentRealm() .. ". Refresh TSM Desktop App data and rerun the timestamp importer.")
+			end
+		end
+	end)
+end
+
+function ns.ArmSayTest()
+	sayTestArmed = true
+	ns.Print("In Say, send ?pc followed by an item link. The result will appear only in your chat window.")
+end
+
+local function onChat(_, event, text, sender, _, _, _, flags, _, _, _, _, _, guid)
+	local isSay = event == "CHAT_MSG_SAY"
+	if isSay then
+		if not sayTestArmed then return end
+	elseif not ns.CanReply() then
+		return
+	end
 	if not (ns.Readable(text) and ns.Readable(sender) and ns.Readable(guid) and ns.Readable(flags)) then return end
 	if type(text) ~= "string" or type(sender) ~= "string" or flags == "GM" or flags == "DEV" then return end
 	local shortName = Ambiguate and Ambiguate(sender, "none") or sender
 	local ownMessage = (guid and guid == UnitGUID("player")) or shortName == UnitName("player")
 	if not hasTrigger(text) then return end
+	if isSay then
+		if not ownMessage then return end
+		sayTestArmed = false
+		ns.PreviewRequest(text)
+		return
+	end
 	if not ns.CanAnswer(text) then
 		if not warnedNoAddon then
 			warnedNoAddon = true
@@ -184,17 +232,10 @@ end
 function ns.StartListening()
 	local frame = CreateFrame("Frame")
 	frame:RegisterEvent("CHAT_MSG_GUILD")
-	frame:SetScript("OnEvent", onGuildChat)
+	frame:RegisterEvent("CHAT_MSG_SAY")
+	frame:SetScript("OnEvent", onChat)
 end
 
 function ns.SelfTest()
-	if not IsInGuild() then
-		ns.Print("Join a guild before testing guild price requests.")
-		return
-	end
-	if not ns.CanReply() then
-		ns.Print("Enable PriceCheck Reply before testing.")
-		return
-	end
-	ns.Print("Your own guild requests count automatically. Send ?pc followed by a shift-clicked item link in guild chat to test.")
+	ns.Print("Use /pcrguild test [item link] for a private price preview, or /pcrguild test say to test from Say.")
 end

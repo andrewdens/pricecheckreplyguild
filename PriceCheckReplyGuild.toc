@@ -3,7 +3,7 @@
 ## Notes: Adds a movable guild price reply button.
 ## Version: 1.0.0
 ## Dependencies: PriceCheckReply
-## OptionalDeps: TradeSkillMaster, Auctionator
+## OptionalDeps: TradeSkillMaster, Auctionator, PriceCheckReplyGuild_TSMData
 ## SavedVariables: PriceCheckReplyGuildDB
 ## IconTexture: Interface\Icons\INV_Misc_Coin_02
 

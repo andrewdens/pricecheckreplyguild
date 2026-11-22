@@ -21,7 +21,9 @@ The Guild add-on turns off the main add-on's automatic guild replies when it loa
 
 In guild chat, type `?pc` followed by an item link, such as `?pc [Copper Ore]`. You can also put `?` immediately before the item link. Shift-click the item to insert its link.
 
-Your own guild price requests count automatically. To test the button, send a price request in guild chat. Run `/pcrguild selftest` for a reminder in game.
+Use `/pcrguild test [item link]` to preview a real price reply privately. Shift-click an item to insert the link. To test from Say, run `/pcrguild test say`, then send `/say ?pc [item link]`. People nearby can see the Say request, and the price reply appears only in your chat window.
+
+If TSM realm data age is missing, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Refresh-TSMRealmData.ps1` from the guild add-on folder. This reads TSM AppHelper's realm timestamps and writes a separate `PriceCheckReplyGuild_TSMData` add-on. Restart WoW after the first import. To use a newer TSM Desktop App snapshot, run the importer again and `/reload`.
 
 A sound plays when a guild price request brings up a reply. Run `/pcrguild test` to hear the sound and show the button with a sample reply. You can hover, move, and resize it. Clicking it confirms the test locally. Run `/pcrguild test hide` to hide it without clicking.
 
