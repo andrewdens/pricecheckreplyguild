@@ -135,6 +135,7 @@ local function showGuildReply(lines, isTest)
 	testDraft = isTest
 	guildReplyButton:Show()
 	if GameTooltip:IsOwned(guildReplyButton) then showReplyPreview(guildReplyButton) end
+	PlaySound(SOUNDKIT.TELL_MESSAGE)
 end
 
 function ns.ShowTestReply()

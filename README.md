@@ -23,7 +23,7 @@ In guild chat, type `?pc` followed by an item link, such as `?pc [Copper Ore]`. 
 
 Your own guild price requests count automatically. To test the button, send a price request in guild chat. Run `/pcrguild selftest` for a reminder in game.
 
-Run `/pcrguild test` to show the button with a sample reply. You can hover, move, and resize it. Clicking it confirms the test locally. Run `/pcrguild test hide` to hide it without clicking.
+A sound plays when a guild price request brings up a reply. Run `/pcrguild test` to hear the sound and show the button with a sample reply. You can hover, move, and resize it. Clicking it confirms the test locally. Run `/pcrguild test hide` to hide it without clicking.
 
 ## License
 
