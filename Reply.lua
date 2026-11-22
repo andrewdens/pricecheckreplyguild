@@ -59,9 +59,8 @@ local function replyInGuild()
 		end
 		openChat((SLASH_GUILD1 or "/g") .. " " .. line, DEFAULT_CHAT_FRAME)
 	else
-		if InCombatLockdown() or UnitAffectingCombat("player")
-			or (C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()) then
-			ns.Print("leave combat before trying to send a guild reply.")
+		if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+			ns.Print("WoW is blocking addon chat sends. Shift-click Reply to fill the guild chat box.")
 			return
 		end
 		-- Send one line within the hardware click, as in the custom Price Answer button.

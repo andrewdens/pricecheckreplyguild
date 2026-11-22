@@ -110,12 +110,26 @@ local function auctionatorPrice(link, kind)
 	return value, "Auctionator", ns.AuctionatorAge(link)
 end
 
--- One item's auction price, where it came from, how old it is (Auctionator only), and whether it
+local function tsmScanAge()
+	-- AppHelper saves the timestamp of the last full scan when the UI unloads.
+	local db = TradeSkillMaster_AppHelperDB
+	local scan = type(db) == "table" and db.fullScan
+	local scanned = type(scan) == "table" and scan.updateTime
+	if type(scanned) ~= "number" or scanned <= 0 then return end
+	local ago = time() - scanned
+	if ago < 0 then return end
+	if ago < 60 then return "TSM last saved scan <1m ago" end
+	if ago < 3600 then return format("TSM last saved scan %dm ago", floor(ago / 60)) end
+	if ago < 86400 then return format("TSM last saved scan %dh ago", floor(ago / 3600)) end
+	return format("TSM last saved scan %dd ago", floor(ago / 86400))
+end
+
+-- One item's auction price, where it came from, the age note, and whether it
 -- came from TSM, or nil. `addon` as in useTSM.
 local function auctionPrice(link, kind, addon)
 	if useTSM(addon) then
 		local value, label = tsmPrice(link)
-		if value then return value, label, nil, true end
+		if value then return value, label, ns.db.showAge and tsmScanAge() or nil, true end
 	end
 	if useAuctionator(addon) then return auctionatorPrice(link, kind) end
 end
@@ -314,7 +328,7 @@ local function regionNotes(info, notes, short)
 		notes[#notes + 1] = (short and "sells " or "region sale rate ") .. percentText(info.saleRate)
 	end
 	if info.perDay then
-		notes[#notes + 1] = "on average sells " .. perDayText(info.perDay, short) .. " per day"
+		notes[#notes + 1] = "on average server sells " .. perDayText(info.perDay, short) .. " per day"
 	end
 end
 
