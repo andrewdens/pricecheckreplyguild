@@ -55,7 +55,7 @@ local function replyInGuild()
 	if not draft then return end
 	if draft.isTest then
 		dismissReply()
-		ns.Print("Reply button test clicked.")
+		ns.Print(draft.lines[1])
 		return
 	end
 	if not ns.CanReply() then
@@ -137,13 +137,13 @@ local function showGuildReply(lines, isTest, sender)
 			ns.settings.size = { width = button:GetWidth(), height = button:GetHeight() }
 		end)
 	end
-	if replyQueue[1] and replyQueue[1].isTest then table.remove(replyQueue, 1) end
+	if replyQueue[1] and replyQueue[1].isTest then replyQueue = {} end
 	replyQueue[#replyQueue + 1] = { lines = lines, isTest = isTest, sender = sender }
 	updateReplyButton()
 	PlaySound(SOUNDKIT.TELL_MESSAGE)
 end
 
-function ns.ShowTestReply()
+function ns.ShowTestReply(showQueue)
 	if replyQueue[1] and not replyQueue[1].isTest then
 		ns.Print("Finish or dismiss the queued guild replies before testing.")
 		return
@@ -151,12 +151,20 @@ function ns.ShowTestReply()
 	local age = ns.db.showAge and ns.TSMScanAge()
 	local line = "Test price reply: Copper Ore, 25 silver."
 	if age then line = line .. " (" .. age .. ")" end
-	showGuildReply({ line }, true)
+	showGuildReply({ line }, true, showQueue and "Sample requester 1" or nil)
+	if showQueue then
+		replyQueue[2] = { lines = { "Test price reply: Linen Cloth, 40 silver." }, isTest = true, sender = "Sample requester 2" }
+		replyQueue[3] = { lines = { "Test price reply: Peacebloom, 1 gold." }, isTest = true, sender = "Sample requester 3" }
+		updateReplyButton()
+	end
 	if age then ns.Print(age) end
 end
 
 function ns.HideTestReply()
-	if replyQueue[1] and replyQueue[1].isTest then dismissReply() end
+	if replyQueue[1] and replyQueue[1].isTest then
+		replyQueue = {}
+		updateReplyButton()
+	end
 end
 
 

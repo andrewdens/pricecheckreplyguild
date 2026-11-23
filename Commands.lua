@@ -6,6 +6,8 @@ SlashCmdList.PRICECHECKREPLYGUILD = function(message)
 	local command = text:lower()
 	if command == "test" then
 		ns.ShowTestReply()
+	elseif command == "test queue" then
+		ns.ShowTestReply(true)
 	elseif command == "test hide" then
 		ns.HideTestReply()
 	elseif command == "test say" then
