@@ -9,5 +9,6 @@
 
 Core.lua
 Prices.lua
+Sound.lua
 Reply.lua
 Commands.lua

@@ -4,7 +4,9 @@ SLASH_PRICECHECKREPLYGUILD1 = "/pcrguild"
 SlashCmdList.PRICECHECKREPLYGUILD = function(message)
 	local text = strtrim(message)
 	local command = text:lower()
-	if command == "test" then
+	if command == "sound" or command:match("^sound%s+") then
+		ns.SoundCommand(command:match("^sound%s+(.+)$") or "")
+	elseif command == "test" then
 		ns.ShowTestReply()
 	elseif command == "test queue" then
 		ns.ShowTestReply(true)

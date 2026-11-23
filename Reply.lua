@@ -140,7 +140,7 @@ local function showGuildReply(lines, isTest, sender)
 	if replyQueue[1] and replyQueue[1].isTest then replyQueue = {} end
 	replyQueue[#replyQueue + 1] = { lines = lines, isTest = isTest, sender = sender }
 	updateReplyButton()
-	PlaySound(SOUNDKIT.TELL_MESSAGE)
+	ns.PlayReplySound()
 end
 
 function ns.ShowTestReply(showQueue)
@@ -246,4 +246,5 @@ end
 
 function ns.SelfTest()
 	ns.Print("Use /pcrguild test [item link] for a private price preview, or /pcrguild test say to test from Say.")
+	ns.Print("Use /pcrguild sound to see and change the reply alert.")
 end

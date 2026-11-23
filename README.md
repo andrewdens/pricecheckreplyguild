@@ -25,7 +25,9 @@ Use `/pcrguild test [item link]` to preview a real price reply privately. Shift-
 
 If TSM realm data age is missing, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Refresh-TSMRealmData.ps1` from the guild add-on folder. This reads TSM AppHelper's realm timestamps and writes a separate `PriceCheckReplyGuild_TSMData` add-on. Restart WoW after the first import. To use a newer TSM Desktop App snapshot, run the importer again and `/reload`.
 
-A sound plays when a guild price request brings up a reply. Run `/pcrguild test` to hear the sound and show the button with a sample reply, or `/pcrguild test queue` to see it with three sample requests. Clicking prints the sample locally. Run `/pcrguild test hide` to clear the demo.
+A sound plays when a guild price request brings up a reply. Run `/pcrguild sound` to see the current sound and choices. The default is Whisper. Use `/pcrguild sound preview` to hear your current sound and see its sound kit ID. Add a choice after `preview` to try it, for example `/pcrguild sound preview ready`. Use `/pcrguild sound ready` to select it, or `/pcrguild sound off` to mute the alert. Your selection is saved, and the alert uses WoW's Master audio channel.
+
+Run `/pcrguild test` to try the alert with a sample reply, or `/pcrguild test queue` to see it with three sample requests. Clicking prints the sample locally. Run `/pcrguild test hide` to clear the demo.
 
 ## License
 
